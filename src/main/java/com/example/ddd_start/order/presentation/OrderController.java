@@ -1,6 +1,7 @@
 package com.example.ddd_start.order.presentation;
 
 import com.example.ddd_start.common.domain.exception.ValidationErrorException;
+import com.example.ddd_start.order.application.model.ChangeOrderShippingInfoCommand;
 import com.example.ddd_start.order.application.model.PlaceOrderCommand;
 import com.example.ddd_start.order.application.service.OrderService;
 import com.example.ddd_start.order.presentation.model.PlaceOrderRequest;
@@ -44,5 +45,10 @@ public class OrderController {
 
       throw new RuntimeException(e);
     }
+  }
+
+  @PostMapping("/orders/shipping-info")
+  public void changeShippingInfo(ChangeOrderShippingInfoCommand command) {
+    orderService.changeShippingInfo(command);
   }
 }

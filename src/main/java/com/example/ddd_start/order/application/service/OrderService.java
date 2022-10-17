@@ -21,6 +21,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class OrderService {
   private final OrderRepository orderRepository;
   private final MemberRepository memberRepository;
   private final DiscountCalculationService discountCalculationService;
+  private final ApplicationEventPublisher eventPublisher;
 
   @Transactional
   public void cancelOrder(Long orderId) {
@@ -53,6 +55,8 @@ public class OrderService {
       Member member = optionalMember.orElseThrow(NoSuchElementException::new);
       member.changeAddress(newShippingInfo.getAddress());
     }
+
+    order.getOrderEvents().forEach(e -> eventPublisher.publishEvent(e));
   }
 
   @Transactional(readOnly = true)

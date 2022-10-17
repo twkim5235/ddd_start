@@ -2600,7 +2600,7 @@ public class DiscountCalculationService {
 
 ### 8. 애그리거트 트랜잭션 관리
 
-### 8.1 애그리거트와 트랜잭션
+#### 8.1 애그리거트와 트랜잭션
 
 <img src="./img/transaction1.jpeg" alt="transaction1" style="zoom:90%;" />
 
@@ -2613,7 +2613,7 @@ public class DiscountCalculationService {
     - 운영자가 배송지 정보를 조회한 이후에 고객이 정보를 변경하면, 운영자가 애그리거트를 다시 조회한 뒤 수정하도록 한다.
   - 이 두 가지는 애그리거트 자체의 트랜잭션과 관련이 있다. DBMS가 지원하는 트랜잭션과 함께 애그리거트를 위한 추가적인 트랜잭션 처리 기법이 필요하다. 애그리거트에 대해 사용할 수 있는 트랜잭션 처리 방식에는 `선점 잠금(비관적 락) Pessimistic Lock`과 `비선점 잠금(낙관적 락) Optimistic Lock`인 두가지 방식이 있다.
 
-### 8.2 선점 잠금 (비관적 락) - Perssimistic Lock
+#### 8.2 선점 잠금 (비관적 락) - Perssimistic Lock
 
 - 비관적 락은 먼저 애그리거트를 구한 스레드가 애그리거트 사용이 끝날 때 까지 다른 스레드가 해당 애그리거트를 수정하지 못하게 막는 방식이다.
 
@@ -2697,7 +2697,7 @@ public class DiscountCalculationService {
 
 
 
-### 8.3 비선점 잠금(낙관적 락) - Optimistick Lock
+#### 8.3 비선점 잠금(낙관적 락) - Optimistick Lock
 
 - 선점 잠금이 강력해 보이긴 하지만 선점 잠금으로 모든 트랜잭션 충돌 문제가 해결되는 것은 아니다.
 
@@ -2838,7 +2838,7 @@ public class DiscountCalculationService {
 
 
 
-### 8.4 오프라인 선점 잠금 - Offline Pessmistic Lock
+#### 8.4 오프라인 선점 잠금 - Offline Pessmistic Lock
 
 <img src="./img/transaction7.jpg" style="zoom:33%;" />
 
@@ -3127,3 +3127,946 @@ public class DiscountCalculationService {
     }
   }
   ~~~
+
+
+
+
+### 9. 도메인 모델과 바운디드 컨텍스트
+
+#### 9.1 도메인 모델과 경계
+
+- 처음 도메인을 만들 때, 도메인을 완벽하게 표현하는 단일 도메인을 만드는 함정에 빠지기 쉽다.
+
+  - 한 도메인으로 하위 도메인을 모두 표현하려고 하면 오히려 모든 하위 도메인에 맞지 않은 모델을 만들게 된다.
+
+  - ex) 상품이라는 모델에 대하여 이름은 같으나 각각 의미하는 바는 다르다.
+    - 카탈로그에서의 상품 - 상품 상세정보, 이미지, 가격 등의 상품 정보
+    - 배송에서의 상품 - 실제 배송되고 있는 상품
+    - 재고에서의 상품 - 창고에서 관리하기 위한 상품
+
+- 논리적으로는 같은 존재처럼 보이지만 하위 도메인에 따라 다른 용어를 사용하는 경우도 있다.
+
+  - ex) 
+    - 카탈로그 도메인에서의 상품이, 검색 도메인에서는 문서로 불리기도 한다.
+    - 시스템을 사용하는 사람을 회원 도메인에서는 회원이라고 부르지만, 주문 도메인에서는 주문자라고 부르고, 배송 도메인에서는 보내는 사람이라고 부른다.
+
+​			<img src="./img/domain1.jpg" alt="domain1" style="zoom:33%;" />
+
+- 하위 도메인마다 같은 용어라도 의미가 다르고 같은 대상이라도 지칭하는 용어가 다를 수 있기 때문에 한 개의 모델로 모든 하위 도메인을 표현하려는 시도는 올바른 방법이 아니다.
+
+  > 질문1. 그렇다면 지칭하는 용어가 다르다면 각각의 용어에 맞게 모델을 만드는 것이 맞을까? 아니면 파라미터 명을 의미에 맞게 짓는게 맞을까? 
+  >
+  > 질문2. 지칭하는 용어가 같다면, 각각의 도메인 모델을 생성해주는 것이 맞는것인가? 이경우에는 Entity로 가져가야 하는 것인가? 또는 Value로 가져가야 하는 것인가?
+
+- 하위 도메인마다 사용하는 용어가 다르기 때문에 올바른 도메인 모델을 개발하려면 하위 도메인마다 모델을 만들어야 한다. (질문1의 답인 것 같다.)
+  - 각 모델은 명시적으로 구분되는 경계를 가져서 섞이지 않도록 해야 한다. 
+  - 여러 하위 도메인의 모델이 섞이기 시작하면 모델의 의미가 약해질 뿐만 아니라, 여러 도메인의 모델이 서로 얽히기 때문에 각 하위 도메인별로 다르게 발전하는 요구사항을 모델에 반영하기 어려워진다.
+- 모델은 특정한 컨텍스트(문맥) 하에서 완전한 의미를 갖는다. 같은 제품이라도 카탈로그 컨텍스트와 재고 컨텍스트에서 의미가 서로다르다.
+- 구분되는 경계를 갖는 컨텍스트를 DDD에서는 **바운디드 컨텍스트**라고 부른다.
+
+
+
+#### 9.2 바운디드 컨텍스트
+
+- 바운디드 컨텍스트는 모델의 경계를 결정하며 한개의 바운디드 컨텍스트는 논리적으로 한 개의 모델을 갖는다.
+
+  - 바운디드 컨텍스트는 용어를 기준으로 컨텍스트를 분리할 수 있다. 
+  - 바운디드 컨텍스트는 실제로 사용자에게 기능을 제공하는 물리적 시스템으로, 도메인 모델은 이 바운디드 컨텍스트 안에서 도메인을 구현한다.
+
+- 이상적으로느 하위 도메인과 바운디드 컨텍스트가 1대1 관걔를 가지는 것이 좋다. 허나 현실은 그렇지 않다.
+
+  - 바운디드 컨텍스트는 기업의 팀 조직 구조에 따라 결정되기도 한다.
+
+  <img src="./img/domain2.jpg" alt="domain2" style="zoom:33%;" />
+
+  - 규모가 작은 기업은 하나의 시스템에서 회원, 카탈로그, 재고, 구매, 결제와 관련된 모든 기능을 제공한다. 여러 하위 도메인을 한개의 바운디드 컨텍스트에서 구현한다.
+
+    - 여러 하위 도메인을 하나의 바운디드 컨텍스트에서 개발할 때, 주의할 점은 하위 도메인의 모델이 섞이지 않도록 하는 것이다.
+
+    - 비록 한개의 바운디드 컨텍스트가 여러 하위 도메인을 포함하더라도 하위 도메인 마다 구분되는 패키지를 갖도록 구현해야 하며, 이렇게 함으로써 하위 도메인을 위한 모델이 서로 뒤섞이지 않고 하위 도메인 마다 바운디드 컨텍스트를 갖는 효과를 낼 수 있다.
+
+      <img src="./img/domain3.jpg" alt="domain3" style="zoom:33%;" />
+
+> 질문3. 도메인 모델 이 바운디드 컨텍스트안에 속하는 것인가? 아니면 바운디드 컨텍스트가 도메인 모델안에 속하는 것인가?
+
+- 바운디드 컨텍스트는 도메인 모델을 구분하는 경계가 되기 때문에 바운디드 컨텍스트는 구현하는 하위 도메인에 알맞은 모델을 포함한다.
+
+  - 같은 상품이라도 카탈로그 바운디드 컨텍스트의 상품과 재고 바운디드 컨텍스트의 상품은 각 컨텍스트에 맞는 모델을 갖는다.
+
+  - 회원의 Member는 애그리거트 루트이지만 주문의 Orderer는 밸류가 된다.
+
+  - 카탈로그의 Product는 상품이 속할 Category와 연관을 갖지만 재고의 Product는 카탈로그의 Category와 연관을 맺지 않는다.
+
+    <img src="./img/domain4.jpg" alt="domain4" style="zoom:33%;" />
+
+#### 
+
+#### 9.3 바운디드 컨텍스트 구현
+
+- 바운디드 컨텍스트가 도메인 모델만 포함하는 것은 아니다. 바운디드 컨텍스는 도메인 기능을 사용자에게 제공하는 데 필요한 표현 영역, 응용 서비스, 인프라스트럭처 영역을 모두 포함한다. 도메인 모델의 데이터 구조가 바뀌면 DB 테이블 스키마도 함께 변경해야 하므로 테이블도 바운디드 컨텍스트에 포함된다.
+
+<img src="./img/domain5.jpg" alt="domain5" style="zoom:33%;" />
+
+- 모든 바운디드 컨텍스트를 반드시 도메인 주도로 개발할 필요는 없다.
+  - 도메인이 단순하다면 DAO와 데이터 중심의 밸류객체를 이용해서 기능을 구현해도 기능을 유지보수하는데 큰 문제는 없다.
+  - 서비스-DAO 구조를 사용하면 도메인 기능이 서비스에 흩어지게 되지만 도메인 기능 자체가 단순하면 서비스-DAO로 구성된 CRUD 방식을 사용해도 코드를 유지 보수하는데 문제 되지 않는다고 한다. - 책의 필자
+
+<img src="./img/domain6.jpg" alt="domain6" style="zoom:33%;" />
+
+- 한 바운디드 컨텍스트에서 두 방식을 혼합새서 사용할 수도 있다.
+
+  - 대표적인 예가 CQRS 패턴이며, CQRS는 Command Query Responsibility Segregation의 약자로 상태를 변경하는 명령 기능과 내용을 조회하는 쿼리 기능을 위한 모델을 구분하는 패턴이다.
+
+  - 이 패턴을 단일 바운디드 컨텍스트에 적용하면 아래의 그림과 같이 상태 변경과 관련된 기능은 도메인 모델 기반으로 구현하고, 조회 기능은 서비스-DAO를 이용해서 구현할 수 있다.
+
+    <img src="./img/domain7.jpg" alt="domain7" style="zoom:33%;" />
+
+- 각 바운디드 컨텍스트는 서로 다른 구현 기술을 사용할 수도 있다.
+
+  - 웹 MVC는 스프링 MVC를 사용하고 레포지토리 구현 기술로는 JPA/하이버네이트를 사용하는 바운디드 컨텍스트가 존재할 수도 있다. 
+  - Netty를 이용해서 RESET API를 제공하고, 마이바티스를 레포지토리 구현 기술로 사요하는 바운디드 컨텍스트가 존재할 수도 있다.
+  - 어떤 바운디드 컨텍스트는 RDBMS 대신 몽고DB와 같은 NoSQL을 사용할 수도 있을 것이다.
+
+- 바운디드 컨텍스트가 반드시 사용자에게 보여지는 UI를 가지고 있어야 하는 것은 아니다. 
+
+  - 아래의 그림과 같이 카탈로그 바운디드 컨텍스트를 통해 상세 정보를 읽어온 뒤, 리뷰 바운디드 컨텍스트의 REST API를 직접 호출해서 로딩한 JSON 데이터를 알맞게 가공해서 리뷰 목록을 보여줄 수도 있다.
+
+  <img src="./img/domain8.jpg" alt="domain8" style="zoom:33%;" />
+
+  - 아래의 그림과 같이 UI를 처리하는 서버를 두고, UI 서버에서 바운디드 컨텍스트와 통신해서 사용자 요청을 처리하는 방법도 있다.
+
+    <img src="./img/domain9.jpeg" alt="domain9" style="zoom:33%;" />
+
+  - 이 구조에서 UI 서버는 각 바운디드 컨텍스트를 위한 파사트 역할을 수행한다. 브라우저가 UI서버에 요청을 하면 UI 서버는 카탈로그와 리뷰 바운디드 컨텍스트로 부터 필요한 정보를 읽어와 조합한 뒤, 브라우제어 응답을 제공한다.
+
+
+
+#### 9.4 바운디드 컨텍스트 간 통합
+
+- 온라인 쇼핑 사이트에서 매출 증대를 위해 카탈로그 하위 도메인에 개인화 추천 기능을 도입한다고 하자.
+
+  - 개인화 추천기능은 기존에 카탈로그를 개발한 팀이 아닌 추천 기능을 개발하기 위한 새로운 팀을 꾸려서 진행한다.
+
+  - 이렇게 되면 카탈로그 하위 도메인에는 기존 카탈로그를 위한 바운디드 컨텍스트와 추천 기능을 위한 바운디드 컨텍스트가 생긴다.
+
+    <img src="./img/domain10.jpg" alt="domain10" style="zoom:33%;" />
+
+  - 두 팀이 관련된 바운디드 컨텍스트를 개발하면 자연스럽게 두 바운디드 컨텍스트 간 통합이 발생한다. 
+
+    - 통합이 필요한 기능: 사용자가 제품 상세 페이지를 볼 때, 보고 있는 유사한 상품 목록을 하단에 보여준다.
+
+  - 사용자가 카탈로그 바운디드 컨텍스트에 추천 제품 목록을 요청하면, 카탈로그 바운디드 컨텍스트는 추천 바운디드 컨텍스트로부터 추천 정보를 읽어와 추천 제품 목록을 제공한다.
+
+    - 이 때 카탈로그 컨텍스트와 추천 컨텍스트의 도메인 모델은 서로 다르다. 카탈로그는 제품을 중심으로 도메인 모델을 구현하지만, 추천은 추천 연산을 위한 모델을 구현한다.
+    - 카탈로그 시스템은 추천 시스템으로부터 추천 데이터를 받아오지만, 카탈로그 시스템에서는 추천의 도메인 모델을 사용하기보다는 카탈로그 도메인 모델을 사용해서 추천 상품을 표현해준다.
+
+    ~~~java
+    /**
+    * 상품 추천 기능을 표현하는 도메인 서비스
+    */
+    public interface ProductRecommendationService {
+    	List<Prodcut> getRecommendationsOf(ProductId id);
+    }
+    ~~~
+
+    - 도메인 서비스를 구현한 클래스는 인프라스트럭처 영역에 위치한다. 이 클래스는 외부시스템과의 연동을 처리하고, 외부 시스템의 모델과 현재 도메인 모델간의 변환을 책임진다.
+  
+      <img src="./img/domain11.jpg" alt="domain11" style="zoom:33%;" />
+  
+    - 위의 그림과 같이 RecSystemClient는 외부 추천 시스템이 제공하는 REST API를 이용해서 특정 상품을 위한 추천 상품 목록을 로딩한다.
+  
+    - 이 REST API가 제공하는 데이터는 추천 시스템의 모델을 기반으로 하고 있기 때문에 API 응답은 다음과 같이 카탈로그 도메인 모델과 일치하지 않는 데이터를 제공할 것이다.
+  
+      ~~~json
+      [
+      	{
+      		"itemId": "PROD-1000",
+      		"type": "PRODUCT",
+      		"rank": 100
+      	},
+      	{
+      		"itemId": "PROD-1001",
+      		"type": "PRODUCT",
+      		"rank": 54
+      	}
+      ]
+      ~~~
+  
+    - RecSystemClient는 REST API로부터 데이터를 읽어와 카탈로그 도메인에 맞는 상품 모델로 변환한다.
+  
+      ~~~java
+      public class RecSystemClient implements ProductRecommendationService{
+      
+        private ProductRepository productRepository;
+      
+        @Override
+        public List<Product> getRecommendationsOf(Long productId) {
+          List<RecommendationItem> items = getRecItems(productId);
+          return toProducts(items);
+        }
+      
+        private List<RecommendationItem> getRecItems(String itemId) {
+          //externalRecClient는 외부 추천 시스템을 위한 클라이언트라고 가정
+          return externalRecClient.getRecs(itemId);
+        }
+      
+        private List<Product> toProducts(List<RecommendationItem> items) {
+          return items.stream()
+              .map(item -> toProductId(item.getItemId))
+              .map(prodId -> productRepository.findById(prodId))
+              .collect(Collectors.toList());
+        }
+      
+        private Long toProductId(String itemId) {
+          return productRepository.findByExternalId(itemId).getId;
+        }
+      }
+      ~~~
+  
+    - getRecItems를 통해 외부 추천 시스템으로부터 추천 상품 목록을 가져온뒤, toProducts를 통해 추천 상품 id를 가지고, 카테고리 바운디드에서 상품정보를 찾아서 반환해준다.
+  
+  - 두 모델 간의 변환 과정이 복잡하면 변환 처리를 위한 별도 클래스를 만들고 이 클래스에버 변환을 처리해도 된다.
+  
+    <img src="./img/domain12.jpg" alt="domain12" style="zoom:33%;" />
+  
+  - REST API를 호출하는 것(또는 요새 유행하는 rpc 인지 grpc인지도 해당할 것 같다)은 두 바운디드 컨텍스트를 직접 통합하는 방법이다. 직접 통합하는 대신 간접적으로 통합하는 방법도 있다.
+  
+  - 대표적인 간접 통합 방식이 메시지 큐를 사용하는 것이다.
+  
+    - 추천 시스템은 사용자가 조회한 상품 이력이나 구매 이력과 같은 사용자 활동 이력을 필요로 하는데 이 내역을 전달할 때 메시지 큐를 사용할 수 있다.
+  
+    <img src="./img/domain13.jpg" alt="domain13" style="zoom:33%;" />
+  
+  - 위의 그림에서 카탈로그 바운디드 컨텍스트는 추천시스템이 필요로 하는 사용자 활동 이력을 메시지 큐에 추가한다.
+  
+    - 메시지 큐는 비동기로 처리하기 때문에 카탈로그 바운디드 컨텍스트는 메시지를 큐에 추가한 뒤에, 추천 바운디드 컨텍스트가 메시지를 처리할 때까지 기다리지 않고 바로 이어서 자신의 처리를 계속한다.
+  
+  - 각각의 바운디드 컨텍스트를 담당하는 팀은 주고 받을 데이터 형식에 대해 협의해야 한다.
+  
+    - 메시지 시스템을 카탈로그 측에서 관리하고 있다면, 큐에 담기는 메시지는 아래와 같이 카탈로그 도메인을 따르는 데이터를 담을 것이다.
+  
+    <img src="./img/domain14.jpg" alt="domain14" style="zoom:30%;" />
+  
+    - 추천 바운디드 컨텍스트 관점에서 접근하면 아래와 같이 메시지 데이터 구조를 잡을 수 있다.
+  
+      <img src="./img/domain15.jpg" alt="domain15" style="zoom:33%;" />
+  
+  - 어떤 도메인 관점에서 모델을 사용하느냐에 따라 두바운디드 컨텍스트의 구현코드가 달라지게 된다.
+  
+    - 카탈로그 도메인 관점에서 큐에 저장할 메시지를 생성하면, 카탈로그 기준의 데이터를 그대로 메시지 큐에 저장한다.
+  
+      ~~~java
+      //상품 조회 관련 로그 기록 코드
+      public class ViewLogService{
+      
+          private MessageClient messageClient;
+      
+          public void appendViewLog(Long memberId, Long productId, Date time) {
+            messageClient.send(new ViewLog(memberId, productId, time));
+          }
+        }
+      
+        //messageClient
+        public class RabbitMqClient implements MessageClient {
+      
+          private RabbitTemplate rabbitTemplate;
+      
+          @Override
+          public void send(ViewLog viewLog) {
+            //카탈로그 기준으로 작성한 데이터를 큐에 그대로 보관
+            rabbitTemplate.convertAndSend(logQueuName, viewLog)
+          }
+        }
+      ~~~
+  
+    - 카탈로그 도메인 모델을 기준으로 메시지를 전송하므로 추천 시스템은 자신의 모델에 맞게 메시지를 변환해서 처리해야 한다.
+  
+    - 반대로 추천 시스템을 기준으로 카탈로그 쪽에서 메시지 큐에 저장하기로 했다면, 카탈로그 쪽 코드는 다음과 같이 바뀔 것이다.
+  
+      ~~~java
+      //상품 조회 관련 로그 기록 코드
+        public class ViewLogService{
+      
+          private MessageClient messageClient;
+      
+          public void appendViewLog(Long mebmerId, Long productId, Date time) {
+            messageClient.send(new ActivityLog(productId, mebmerId, ActivityType.VIEW, time));
+          }
+        }
+      
+        //messageClient
+        public class RabbitMQClient implements MessageClient {
+      
+          private RabbitTemplate rabbitTemplate;
+      
+          @Override
+          public void send(ActivityLog activityLog) {
+            rabbitTemplate.convertAndSend(logQueueName, activityLog);
+          }
+        }
+      ~~~
+  
+  - 두 바운디드 컨텍스트를 개발하는 팀은 메시징 큐에 담을 데이터의 구조를 협의하게 되는데, 그 큐를 누가 제공하느냐에 따라 데이터 구조가 결정된다.
+  
+    - 예를들어 카탈로그 시스템에서 큐를 제공한다면 큐에 담기는 내용은 카탈로그 도메인을 따른다. 
+  
+    - 카탈로그 도메인은 메시징 큐에 카탈로그와 관련된 메시지를 저장하게 되고 다른 바운디드 컨텍스트는 이 큐로부터 필요한 메시지를 수신하는 방식을 사용한다.
+  
+    - 즉 이방식은 한쪽에서 메시지를 출판하고 다른 쪽에서 메시지를 구독하는 출판/구독 모델을 따른다.
+  
+      <img src="./img/domain16.jpg" alt="domain16" style="zoom:33%;" />
+  
+     - 큐를 추천 시스템에서 제공할 경우 큐를 통해 메시지를 추천 시스템에 전달하는 방식이 된다.
+  
+     - 이경우 큐로 인해 비동기로 추천시스템에 데이터를 전달하는 것을 제외하면, 추천 시스템이 제공하는 REST API를 사용해서 데이터를 전달하는 것과 차이가 없다.
+  
+       > 질문: 도대체 이게 무슨말인가? - 자기가 자신의 메시지를 또 자신한테 보내는 것을 의미하는가?
+  
+  > 참고: 마이크로서비스와 바운디드컨텍스트
+  >
+  > 마이크로서비스 아키텍처가 단순 유행을 지나 많은 기업에서 자리를 잡아가고 있다. 넥플릭스나 아마존 같은 선도 기업뿐만아니라, 많은 기업이 마이크로서비스 아키텍처를 수요하는 추세다. 
+  >
+  > 마이크로서비스는 애플리케이션을 작은 서비스로 나누어 개발하는 아키텍처 스타일이다. 개별 서비스를 독립된 프로세스로 실행하고 각 서비스가 REST API나 메시징을 이용해서 통신하는 구조를 갖는다.
+  >
+  > 이런 마이크로서비스의 특징은 바운디드 컨텍스트와 잘 어울린다. 각 바운디드 컨텍스트는 모델의 경계를 형성하는데, 바운디드 컨텍스트를 마이크로서비스로 구현하면 자연스럽게 컨텍스트별로 모델이 분리된다.
+  >
+  > 코드로 생각하면 마이크로서비스마다 프로젝트를 생성하므로 바운디드 컨텍스트마다 프로젝트를 만들게 된다. 이것은 코드 수준에서 모델을 분리하여 두 바운디드 컨텍스트의 모델이 섞이지 않도록 해준다.
+
+
+
+#### 9.5 바운디드 컨텍스트 간 관계
+
+- 바운디드 컨텍스트는 어떤 식으로든 연결되기 때문에 두 바운디드 컨텍스트는 다양한 방식으로 관계를 맺는다. 
+
+- 두 바운디드 컨텍스트 간 관계 중 가장 흔한 관계는 한쪽에서 API를 제공하고 다른 한쪽에서 그 API를 호출하는 관계이다. REST API가 가장 대표적이다.
+
+  - 이 관계에서 API를 사용하는 바운디드 컨텍스트는 API를 제공하는 바운디드 컨텍스트에 의존하게 된다.
+
+    <img src="/Users/taewoo.kim/Documents/02.Study/ddd_start/img/domain17.jpg" alt="domain17" style="zoom:33%;" />
+
+  - 위의 그림에서 하류 컴포넌트인 카탈로그 컨텍스트느 상류 컴포넌트인 추천 컨텍스트가 제공하는 데이터와 기능에 의존한다.
+  - 카탈로그는 추천 상품을 보여주기 위해 추천 바운디드 컨텍스트가 제공하는 REST API를 호출한다. 추천 시스템이 제공하는 REST API의 인터페이스가 바뀌면 카탈로그 시스템의 코드도 바뀌게 된다.
+    - 상류 컴포넌트: 서비스 공급자
+    - 하류 컴포넌트: 서비스를 사용하는 고객
+  - 상류팀과 하류팀은 상호 협력이 필수적이므로, 개발 계획을 서로 공유하고 일정을 협의해야 한다.
+
+- 상류 시스템은 REST API를 제공하거나, 프로토콜 버퍼와 같은 것을 이용해서 서비스를 제공할 수도 있다.
+
+- 상류 팀의 고객인 하류 팀이 다수 존재하면 상류 팀은 여러 하류팀의 요구사항을 수용할 수 있는 API를 만들고 이를 서비스 형태로 공개해서 서비스의 일관성을 유지할 수 있다.
+
+  - 이런 서비스를 가리켜 공개 호스트 서비스라고 한다.
+  - 가장 대표적인 예가 검색이다.
+
+  <img src="./img/domain18.jpg" alt="domain18" style="zoom:33%;" />
+
+- 상류 컴포넌트의 서비스는 상류 바운디드 컨텍스트의 도메인 모델에 따른다. 따라서 하류 컴포넌트는 상류 서비스의 모델이 자신의 도메인 모델에 영향을 주지 않도록 완충 지대를 만들어야 한다.
+
+  <img src="./img/domain19.jpg" alt="domain19" style="zoom:30%;" />
+
+- 위의 그림은 RecSystemClient는 외부 시스템과의 연동을 처리하고, 외부 시스템의 도메인 모델이 내 도메인 모델에 침범하지 않도록 막아주는 역할을 한다.
+
+  - 자신의 도메인 모델이 깨지는 것을 막아주는 안티코럽션 계층이 된다.
+  - 이 계층에서 두 바운디드 컨텍스트간의 모델 변환을 처리해주기 때문에, 다른 바운디드 컨텍스트의 모델에 영향을 받지 않고 내 도메인 모델을 유지할 수 있다.
+
+- 두 바운디드 컨텍스트가 같은 모델을 공유하는 경우도 있다.
+
+  - 예를 들면 `운영자를 위한 주문관리 도구를 개발하는 팀`과 `고객을 위한 주문서비스를 개발하는팀`이 다르지만 주문을 표현하는 모델을 공유함으로써 주문과 관련된 중복 설계를 막을 수 있다.
+
+  - 두 팀이 공유하는 모델을 공유 커널이라고 부른다.
+    - 공유커널의 장점은 중복을 줄여준다.
+    - 공유커널의 단점은 한모델을 공유하기 때문에 한 팀에서 임의로 모델을 변경하면 안되며, 두팀이 밀접한 관계를 유지해야 한다.
+
+- 서로 통합하지 않는 방식은 독릭 방식이다.
+
+  - 두 바운디드 컨텍스트 간에 통합하지 않으므로 서로 독립적으로 모델을 발전시킨다. (귀찮아도 이방식이 제일 괜찮을 것 같다)
+
+  - 독립 방식에서 두 바운디드 컨텍스트 간의 통합은 수동으로 이루어진다. 
+
+    <img src="./img/domain20.jpg" alt="domain20" style="zoom:33%;" />
+
+  - 수동으로 통합하는 방식은 나쁘지 않지만 규모가 커지면 한계가 있으므로, 규모가 커지기 시작하면 두 바운디드 컨텍스트를 통합해야 한다.
+
+    <img src="./img/domain21.jpg" alt="domain21" style="zoom:33%;" />
+
+
+
+#### 9.6 컨텍스트 맵
+
+- 개별 컨텍스트에만 몰입하는 상황을 방지하기 위해, 전체 비즈니스를 조망할 수 있는 지도가 필요하다. -> 그것이 바로 컨텍스트 맵이다.
+  - 컨텍스트 맵은 바운디드 컨텍스트 간의 관계를 표시한 것이다.
+
+
+<img src="./img/domain22.jpg" alt="domain22" style="zoom:33%;" />
+
+- 바운디드 컨텍스트의 장점
+  - 컨텍스트간의 경계가 명확하게 드러난다.
+  - 서로 어떤 관계를 맺는지 알 수 있다.
+  - 주요 애그리거트를 함께 표시하면 모델에 대한 관계가 더 명확히 드러난다.
+- 위의 그림은 오픈 호스트 서비스(OHS)와 안티 코럽션 계층(ACL)만 표시했는데 하위 도메인이나 조직 구조를 함께 표시하면 도메인을 포함한 전체 관계를 이해하는데 도움이 된다.
+- 컨텍스트 맵은 시스템의 전체 구조를 보여준다.
+  - 하위 도메인과 일치하지 않는 바운디드 컨텍스트를 찾아 도메인에 맞게 바운디드 컨텍스트를 조절하고, 사업의 핵심 도메인을 위해 조직 역량을 어떤 바운디드 컨텍스트에 집중할지 파악하는데 도움을 준다.
+
+### 10. 이벤트
+
+#### 10.1 시스템간 강결합 문제
+
+- 쇼핑몰에서 구매를 취소하면 환불을 처리해야 한다.
+- 응용 서비스에서 환불 기능을 실행할 수 있다.
+
+~~~java
+@Slf4j
+@Service
+public class CancelOrderService {
+
+  private RefundService refundService;
+  private OrderRepository orderRepository;
+
+  @Transactional
+  public void cancel(Long orderId) {
+    Order order = orderRepository.findById(orderId).orElseThrow(NoOrderException::new);
+    order.cancel();
+
+    order.startRefund();
+    try {
+      refundService.refund(order.getPaymentId());
+      order.completeRefund();
+    } catch (Exception e) {
+      log.error(e.getMessage());
+    }
+  }
+
+}
+~~~
+
+- 보통 결제 시스템은 외부에 존재하므로 RefundService는 외부에 있는 결제 시스템이 제공하는 환불서비스를 호출한다.
+
+- 외부 서비스를 사용하면 대표적으로 두가지 문제가 발생할 수 있다.
+
+  - 외부 서비스가 정상이 아니여서 Exception이 발생할 경우, 트랜잭션 처리를 어떻게 해야 되는 것인가이다.
+
+    - 환불을 취소했으므로, 트랜잭션을 롤백하는것이 맞아 보일 수 있다. 하지만 주문 상태는 취소로 변경하고, 환불처리를 나중에 다시 시도하는 방식으로도 처리할 수 있다.
+
+  - 성능에 대하여 문제가 생긴다.
+
+    - 외부 서비스에서 환불을 하는데 30초가 걸리면, 주문 취소 기능은 30초 동안 기달려야 한다. 즉 외부 서비스 성능에 직접적인 영향을 받는다.
+
+  - 번외로, 도메인 객체에 서비스를 전달하면 추가로 설계상 문제가 나타날 수 있다.
+
+    - 도메인에 환불처리 코드를 넣어다고 하면, 주문 로직과 결제 로직이 섞이는 문제가 발생한다.
+
+      ~~~java
+      public class Order {
+      	public void cancel(RefundService refundService) {
+      	  // 주문 로직
+      		verifyNotYetShipped();
+      		this.state = CANCEL;
+      		
+      		// 결제 로직
+      		this.refundState = RefundState.REFUND_START;
+      		try {
+      			refundService.refund(paymentId);
+      			this.refundStatus = RefundState.REFUND_COMPLETED;
+      		} catch(){
+      			throw e;
+      		}
+      	}
+      }
+      ~~~
+
+    - Order는 주문을 표현하는 도메인 객체인데 결제 도메인의 환불 관련 로직이 뒤섞이게 된다.
+    - 이것은 환불 기능이 바뀌면 Order도 영향을 받게 된다는 것을 의미한다.
+
+  - 도메인 객체에 서비스를 전달할 시 또다른 문제는 기능을 추가할 때 발생한다.
+
+    - 만약 주문 취소에 대한 알람을 보내야 하는 기능을 구현해야 한다면, 환불 도메인 서비스와 동일하게 알람 통지 서비스를 받도록 구현하게 되어 로직이 섞이는 문제가 발생한다. 
+    - 그렇게 되면 트랜잭션 처리가 더 복잡해지고, 영향을 받는 외부서비스가 두개로 증가한다.
+
+- 위와 같은 문제가 발생하는 이유는 주문 바운디드 컨텍스트와 결제 바운디드 컨텍스트간의 강결합`high coupling` 때문이다. 주문이 결제와 강하게 결합되어 있어서 주문 바운디드 컨텍스트가 결제 바운디드 컨텍스트에 영향을 받게 되는 것이다.
+
+- 이런 결함을 없애기 위해 **이벤트**를 사용하면 된다.
+
+  - 특히 비동기 이벤트를 사용하면 두 시스템 간의 결합을 크게 낮출 수 있다.
+
+#### 10.2 이벤트 개요
+
+- 이벤트`Event`라는 용어는 '과거에 벌어진 어떤 것'을 의미한다. 
+  - 예를 들면 '암호를 변경했음' 이벤트, '주문을 취소했음' 이벤트
+- 이벤트가 발생한다는 것은 상태가 변경됐다는 것을 의미한다.
+  - 이벤트가 발생하는 것에서 끝나지 않는다. 이벤트가 발생하면 그 이벤트에 반응하여 원하는 동작을 수행하는 기능을 구현한다.
+  - 예를 들면 '주문을 취소할 때 이메일을 보낸다' 라는 요구사항이 있으면, '주문을 취소할 때' 주문이 취소상태로 바뀌는 것을 의미하므로, '주문 취소됨 이벤트'를 활용해서 구현할 수 있다.
+
+#### 10.2.1 이벤트 관련 구성요소
+
+- 도메인 모델이 이벤트를 도입하려면 4개의 구성요소인 `이벤트`, `이벤트 생성 주체`, `이벤트 디스패처(퍼블리셔)`, `이벤트 핸들러(구독자)`를 구현해야 한다.
+
+<img src="./img/event1.jpg" alt="event1" style="zoom:33%;" />
+
+- 도메인 모델에서 이벤트 생성 주체는 엔티티, 밸류, 도메인 서비스와 같은 도메인 객체이다. 이들 도메인 객체는 도메인 로직을 실행해서 상태가 바뀌면 관련 이벤트를 발생시킨다.
+- 이벤트 핸들러 `Event Handler`
+  - 이벤트 핸들러는 이벤트 생성 주체가 발생한 이벤트에 반응한다. 
+  - 이벤트 핸들러는 생성 주체가 발생한 이벤트를 전달받아 이벤트에 담긴 데이터를 이용해서 우너하는 기능을 실행한다.
+    - 예를 들어 '주문 취소 됨' 이벤트를 받는 이벤트 핸들러는 해당 주문의 주문자에게 SMS로 취소 사실을 통지하는 기능을 구현할 수 있다.
+- 이벤트 디스패처 `Event Dispatcher` 또는 `Event Publisher`
+  - 이벤트 디스패처는 이벤트 생성 주체와 핸들러를 연결해준다.
+  - 이벤트 생성 주체는 이벤트를 생성해서, 디스패처에 이벤트를 전달한다.
+  - 이벤트를 전달받은 디스패처는 해당 이벤트를 처리할 수 있는 핸들러에 이벤트를 전파한다.
+  - 이벤트 디스패처의 구현방식에 따라 이벤트 생성과 처리를 동기나 비동기로 실행하게 된다.
+
+#### 10.2.2 이벤트의 구성
+
+- 이벤트는 발생한 이벤트에 대한 정보를 담는다. 이벤트는 해당 정보를 포함한다.
+
+  - 이벤트 종류: 클래스 이름으로 이벤트 종류를 표현
+  - 이벤트 발생 시간
+  - 추가 데이터: 주문번호, 신규 배송지 정보 등 이벤트와 관련된 정보
+
+- 배송지를 변경할 때 발생하는 이벤트를 예를 들자면
+
+  - 배송지 변경을 위한 이벤트
+
+    ~~~java
+    @RequiredArgsConstructor
+    @Getter
+    public class ShippingInfoChangedEvent {
+    
+      private final Long orderId;
+      private final Instant timeStamp;
+      private final ShippingInfo shippingInfo;
+      
+    }
+    ~~~
+
+  - 클래스의 이름을 보면 'Changed'라는 과거 시제를 사용했다. 이벤트는 현재 기준으로 과거(바로 직전이라도)에 벌어진 것을 표현하기 때문에 이벤트 이름에는 과거 시제를 사용한다.
+
+  - 이 이벤트를 발생하는 주체는 Order 애그리거트이다. Order 애그리거트의 배송지 변경 기능을 구현한 메서드는 다음 코드처럼 배소지 정보를 변경한 뒤에 ShippingInfoChangedEvent를 발생시킬 것이다.
+
+    > 저는 책과 다르게 applicationEventPublisher를 사용할 것이기도 하고, 도메인 엔티티에서, applicationEventPublisher가 섞이는걸 원치 않아서 이벤트를 add까지만 하고 도메인 서비스 또는 응용 서비스에서 발생시킬 생각입니다.
+    >
+    > 라스트마일을 예로 들고 하긴 했는데, 혹시 제가 잘못 구현한 것이면 알려주시면 감사합니다.
+
+    ~~~java
+    public void changeShippingInfo(ShippingInfo shippingInfo) {
+        verifyNotYetShipped();
+        this.shippingInfo = shippingInfo;
+        orderEvents.add(new ShippingInfoChangedEvent(id, Instant.now(), this.shippingInfo));
+      }
+    ~~~
+
+  - ShippingInfoChangedEvent를 처리하는 핸들러는 디스패처로부터 이벤트를 전달받아 필요한 작업을 수행한다.
+  
+    ~~~java
+    @Slf4j
+    public class ShippingInfoChangedHandler {
+    
+      @EventListener(ShippingInfoChangedEvent.class)
+      public void loggingShippingInfoChanged(ShippingInfoChangedEvent event) {
+        log.info("배송정보가 변경되었습니다.");
+        //책에서는 외부 물류 서비스에 전송하는 핸들러를 구현하였다.
+        shippingInfoSynchronizer.sync(
+          event.getOrderNumber(),
+          event.getNewShippingInfo()
+        );
+      }
+    }
+    ~~~
+  
+  - 이벤트는 이벤트 핸들러가 작업을 수행하는 데 필요한 데이터를 담아야한다. 이 데이터가 부족하면 핸들러는 필요한 데이터를 읽기 위해 관련 API를 호출하거나 DB에서 직접 데이터를 읽어와야 한다.
+
+
+
+#### 10.2.3 이벤트 용도
+
+- 이벤트는 크에 두가지 용도로 쓰인다.
+
+  - 트리거
+
+    - 도메인의 상태가 바뀔 때 다른 후처리가 필요하면 후처리를 실행하기 위한 트리거로 이벤트를 사용할 수 있다.
+
+    <img src="./img/event2.jpg" alt="event2" style="zoom:33%;" />
+
+  - 서로 다른 시스템 간의 동기화
+    - 배송지를 변경하면 외부 배송서비스에 바꾸니 배송지 정보를 전송해야 한다. 주문 도메인은 배송지 변경 이벤트를 발생시키고 이벤트 핸들러는 외부 배송 서비스와 배송지 정보를 동기화할 수 있다.
+
+#### 10.2.4 이벤트 장점
+
+- 이벤트를 사용하면 서로 다른 도메인 로직이 섞이는 것을 방지할 수 있다.
+
+  - 주문 취소를 예를 들어, 이벤트를 사용하지 않을 때, 주문 취소 로직 안에 환불 로직도 함께 포함되어 있었다. 허나 이벤트를 사용하게 되면 주문 취소 안의 환불로직을 이벤트를 발행해 이벤트 리스너에서 따로 처리할 수 있어, 서로 다른 도메인 로직이 섞이는 것을 방지할 수 있다.
+
+    <img src="./img/event3.jpg" alt="event3" style="zoom:33%;" />
+
+- 이벤트 핸들러를 사용하면 기능 확장도 용이하다.
+
+  - 구매 취소 시 환불과 함께 이메일로 취소 내용을 보내고 싶다면, 이메일 발송을 처리하는 핸들러를 구현하면 된다. 기능을 확장해도 구현 취소 로직은 수정할 필요가 없다.
+
+    <img src="./img/event4.jpg" alt="event3" style="zoom:33%;" />
+
+
+
+#### 10.3 이벤트, 핸들러, 디스패처 구현
+
+- 이벤트와 관련된 코드는 다음과 같다.
+  - 이벤트 클래스: 이벤트를 표현한다.
+  - 디스패처: 스프링이 제공하는 ApplicationEventPublisher를 이용한다.
+  - Events: 이벤트를 발행한다. 이벤트 발행을 위해 ApplicationEventPublisher를 사용한다.
+  - 이벤트 핸들러: 이벤트를 수신해서 처리한다. 스프링이 제공하는 기능을 사용한다.
+
+
+
+#### 10.3.1 이벤트 클래스
+
+- 이벤트 자체를 위한 상위 타입은 존재하지 않는다. 원하는 클래스를 이벤트로 사용하면 된다.
+
+- 이벤트는 과거에 벌어진 상태 변화나 사건을 의미하므로 이벤트 클래스의 이름을 결정할 때에는 과거 시제를 사용해야 한다는 점만 유의하면 된다.
+
+- 이벤트 클래스는 이벤트를 처리하는데 필요한 최소한의 데이터를 포함해야 한다.
+
+- 모든 이벤트가 공통으로 갖는 프로퍼티가 존재한다면 관련 상위클래스를 만들 수 있으며, 모든 이벤트 공통 프로퍼티르 갖게 하려면 상위클래스를 각 이벤트 클래스가 상속받도록 하면 된다.
+
+  ~~~java
+  @Getter
+  public abstract class OrderEvent {
+  
+    private Instant timeStamp;
+    
+    public OrderEvent() {
+      this.timeStamp = Instant.now();
+    }
+  }
+  ~~~
+
+
+
+#### 10.3.2 Events 클래스와 ApplicationEventPublisher
+
+- 이벤트 발생과 출판을 위해 스프링이 제공하는 ApplicationEventPublisher를 사용한다.
+
+- Events라는 클래스를 생성해서, 이벤트를 발생시키도록 할 수 있다.
+
+  ~~~java
+  public class Events {
+  
+    private static ApplicationEventPublisher eventPublisher;
+  
+    public static void setEventPublisher(ApplicationEventPublisher publisher) {
+      Events.eventPublisher = publisher;
+    }
+  
+    public static void raise(Object event) {
+      if (eventPublisher != null) {
+        eventPublisher.publishEvent(event);
+      }
+    }
+  }
+  ~~~
+
+- Events 클래스는 Configuration에서 Bean으로 등록해준다.
+
+  ~~~java
+  @Configuration
+  public class EventsConfiguration {
+  
+    @Autowired
+    private ApplicationContext applicationContext;
+  
+    @Bean
+    public InitializingBean eventInitializer() {
+      return () -> Events.setEventPublisher(applicationContext);
+    }
+  }
+  ~~~
+
+  - eventInitializer()메서드는 InitilizingBean타입 객체를 빈으로 설정한다. 이 타입은 스프링 빈 객체를 초기화할 때 사용하는 인터페이스이다.
+
+
+
+#### 10.3.3 이벤트 발생과 이벤트 핸들러
+
+- 이벤트를 발생시킬 코드는 Events.raise() 메서드를 사용한다.
+
+  ~~~java
+    public void cancel() {
+      verifyNotYetShipped();
+      this.orderState = CANCEL;
+      orderEvents.add(new OrderCanceledEvent(orderNumber)); //도메인 로직에서 오더를 발행하는 것은 무리라 판단.
+    }
+  // 도메인 에서는 오더 이벤트 생성까지만 담당함
+  
+  public class CancelOrderService {
+  
+    private RefundService refundService;
+    private OrderRepository orderRepository;
+  
+    @Transactional
+    public void cancel(Long orderId) {
+      Order order = orderRepository.findById(orderId).orElseThrow(NoOrderException::new);
+      order.cancel();
+      
+      Events.raiseEvents(order.getOrderEvents());
+    }
+  }
+  // 응용서비스에서 이벤트 발행
+  ~~~
+
+- 이벤트를 처리할 핸들러는 스프링이 제공하는 @EventListener 애너테이션을 사용해서 구현한다.
+
+  ~~~java
+  @Component
+  @RequiredArgsConstructor
+  public class OrderCanceledEventHandler {
+  
+    private final RefundService refundService;
+  
+    @EventListener(OrderCanceledEvent.class)
+    public void handle(OrderCanceledEvent event) {
+      refundService.refund(event.getPaymentId());
+    }
+  }
+  ~~~
+
+
+
+#### 10.3.4 흐름 정리
+
+- 책에서는 이벤트 처리흐름을 아래과 같이 정리했다.
+
+  <img src="./img/event5.jpg" alt="event5" style="zoom:33%;" />
+
+- 코드 흐름을 보면 응용 서비스와 동일한 트랜잭션 범위에서 이벤트 핸들러를 실행하고 있다. 즉, 도메인 상태 변경과 이벤트 핸들러는 같은 트랜잭션 범위에서 실행된다.
+
+
+
+#### 10.4 동기 이벤트 처리 문제
+
+- 이벤트를 사용해서 강결합 문제는 해소 했지만, 외부 서비스에 영향을 받는 문제가 남아 있다.
+
+  ~~~java
+  //1. 응용 서비스 코드
+   @Transactional
+   public void cancel(Long orderId) {
+      Order order = orderRepository.findById(orderId).orElseThrow(NoOrderException::new);
+      order.cancel();
+  
+      Events.raiseEvents(order.getOrderEvents());
+    }
+  
+  //2. 이벤트를 처리하는 코드
+  	@Transactional(value = TxType.REQUIRES_NEW)
+  	@EventListener(OrderCanceledEvent.class)
+    public void handle(OrderCanceledEvent event) {
+      Order order = orderRepository.findById(event.getOrderId()).orElseThrow(NoOrderException::new);
+  		
+      //refund()가 느려지거나 익셉션이 발생한다면?
+      refundService.refund(event.getPaymentId());
+      order.completeRefund();
+    }
+  ~~~
+
+  - 해당 코드에서 refund()는 외부 환불 서비스와 연동한다고 했을 때, 만약 외부 환불 기능이 갑자기 느려지면 cancel() 메서드도 함께 느려진다. 이것은 외부 서비스의 성능 저하가 바로 내시스템의 성능 저하로 연결된다는 것을 의미한다.
+  - 성능 저하뿐만 아니라, 트랜잭션도 문제가 된다.
+
+- 외부 시스템과의 연동을 동기로 처리할 때 발생하는 성능과 트랜잭션 범위 문제를 해소하는 방법은
+
+  - 이벤트를 비동기로 처리하거나, 이벤트와 트랜잭션을 연계하는 것이다.
+
+
+
+#### 10.5 비동기 이벤트 처리
+
+- 예) 비동기 이벤트 처리가 사용 되는 경우
+  - 회원 가입 신청 후 검증 이메일
+  - 주문 취소 후 환불 처리
+- 보통 'A하면 이어서 B하라'는 요구사항은 실제로 'A하면 최대언제까지 B하라'인 경우가 많다. 즉 일정 시간안에만 후속처리를 진행하면 되는 경우가 적지 않다.
+- 게다가 'A 하면 이어서 B하라'에서 요구사항 B를 하는데 실패하면 일정 간격으로 재시도를 하거나 수동 처리를 해도 상관없는 경우가 있다.
+- 'A하면 이어서 B하라'를 다른 관점에서 보면 'A하면'을 이벤트로 볼 수 있고, 'B하라'는 이벤트 핸들러에서 처리하는 기능으로 볼 수 있다.
+  - 여기서 'A하면 최대 언제까지 B하라'를 보면, 비동기 방식으로 처리하라는 것으로 볼 수 있다. A에서 이벤트를 발행하면 별도의 쓰레드에서 이벤트 핸들러가 B를 실행하면 된다.
+- 이벤트를 비동기로 구현할 수 있는 방법은 다양하다. 책에서는 다음 4가지를 설명한다.
+  - 로컬 핸들러를 비동기로 실행하기
+  - 메시지 큐를 사용하기
+  - 이벤트 저장소와 이벤트 포워더 사용하기
+  - 이벤트 저장소와 이벤트 제공 API 사용하기
+
+
+
+#### 10.5.1 로컬 핸들러 비동기 실행
+
+- 이벤트 핸들러를 비동기로 실행하는 방법은 이벤트 핸들러를 별도 스레드로 실행하는 것이다.
+
+  - 스프링이 제공하는 @Async 에너테이션을 사용하면 솝쉽게 비동기로 이벤트 핸들러를 실행할 수 있다.
+    - @EnabelAsync 애너테이션을 사용해서 비동기 기능을 활성화 한다.
+    - 이벤트 핸들러 메서드에 @Async 애너테이션을 붙인다.
+
+- @EnableAsync 애너테이션은 스프링의 비동기 실행 기능을 활성화한다. 스프링 설정 클래스에 @EnableAsync 애너테이션을 붙이면 된다.
+
+  ~~~java
+  @EnableAsync
+  @SpringBootApplication
+  public class DddStartApplication {
+  
+  	public static void main(String[] args) {
+  		SpringApplication.run(DddStartApplication.class, args);
+  	}
+  
+  }
+  ~~~
+
+- 비동기로 실행할 이벤트 핸들러 메서드에 @Async 애터네이션만 붙이면 된다.
+
+  ```java
+  @Async
+  @Transactional(value = TxType.REQUIRES_NEW)
+  @EventListener(OrderCanceledEvent.class)
+  public void handle(OrderCanceledEvent event) {
+    Order order = orderRepository.findById(event.getOrderId()).orElseThrow(NoOrderException::new);
+  
+    refundService.refund(event.getPaymentId());
+    order.completeRefund();
+  }
+  ```
+
+- 스프링은 OrderCanceledEvent가 발생하면 handle() 메서드를 별도 스레드를 이용해서 비동기로 실행한다.
+
+
+
+#### 10.5.2 메시징 시스템을 이용한 비동기 구현
+
+- 비동기로 이벤트를 처리해야 할 때 사용하는 또 다른 방법은 카프카나 래빗MQ와 같은 메시징 시스템을 사용하는 것이다. 
+- 이벤트가 발생하면 이벤트 디스패처는 이벤트를 메시지 큐에 보낸다. 메시지 큐는 이벤트를 메시지 리스너에 전달하고, 메시지 리스너는 알맞은 이벤트 핸들러를 이용해서 이벤트를 처리한다.
+  - 이때 이벤트를 메시지큐에 저장하는 과정과 메시지 큐에서 이벤트를 읽어와 처리하는 과정은 별도 스레드나 프로세스로 처리된다.
+
+<img src="./img/event6.jpg" alt="event6" style="zoom:33%;" />
+
+- 필요하다면 이벤트를 발생시키는 도메인 기능과 메시지 큐에 이벤트를 저장하는 절차를 한 트랜잭션으로 묶어야 한다.
+  - 도메인 기능을 실행한 결과를 DB에 반영하고 이 과정에서 발생한 이벤트를 메시지 큐에 저장하는 것을 같은 트랜잭션 범위에서 실행하려면 글로벌 트랜잭션이 필요하다.
+- 글로버 트랜잭션을 사용하면 안전하게 이벤트를 메시지 큐에 전달할 수 있는 장점이 있지만 반대로 글로벌 트랜잭션으로 인해 전체 성능이 떨어지는 단점도 있다. 
+  - 글로벌 트랜잭션을 지원하지 않는 메시징 시스템도 있다.
+- 메시지 큐를 사용하면 보통 이벤트를 발생시키는 주체와 이벤트 핸들러가 별도 프로세스에서 동작한다. 이것은 이벤트 발생 JVM과 이벤트 처리 JVM이 다르다는 것을 의미한다. 
+  - 물론 한 JVM에서 메시지 큐를 이용하여 이벤트르 주고받을 수 있지만, 비동기 처리를 위해 메시지 큐를 사용하는 것은 시스템을 복잡하게 한다.
+- 대표적인 메시징 큐
+  - 래빗MQ: 글로벌 트랜잭션 지원, 클러스터와 고가용성 지원 -> 안정적인 메시징 전달
+  - 카프카: 글로벌 트랜잭션 지원 안함 but 다른 메시징 시스템에 비해 높은 성능을 보여줌
+
+
+
+#### 10.5.3 이벤트 저장소를 이용한 비동기 처리
+
+- 이벤트를 비동기로 처리하는 또 다른 방법은 이벤트를 일단 DB에 저장한 뒤에 별도 프로그램을 이용해서 이벤트 핸들러에 전달하는 것이다.
+
+  > 이벤트를 DB에 저장하기에 안정성은 높여줄것 같지만 굳이 다른 프로세스에서 처리를 하는데 메시지큐를 사용하지 DB를 이용해서는 처리를 안할 것 같다... 굳이 꼽자면 성능과 고가용성?
+
+  ![event7](./img/event7.jpg)
+
+- 이벤트가 발생하면 핸들러는 스토리지에 이벤트를 저장한다. 포워더는 주기적으로 이벤트 저장소에서 이벤트를 가져와 이벤트 핸들러를 실행한다. 포워더는 별도 스레드를 이용하기 때문에 이벤트 발행과 처리가 비동기로 처리된다.
+- 이 방식은 도메인의 상태와 이벤트 저장소로 동일한 DB를 사용한다. 즉, 도메인의 상태 변화와 이벤트 저장이 로컬 트랜잭션으로 처리된다. 이벤트를 물리적 저장소에 보관하기 때문에 핸들러가 이벤트 처리에 실패하는 경우 포워더는 다시 이벤트 저장소에서 이벤트를 읽어와 핸들러를 실행하면 된다.
+
+
+
+- 이벤트 저장소를 이용한 두번째 방법은 이벤트를 외부에 제공하는 API를 사용하는 것이다.
+
+  <img src="./img/event8.jpg" alt="event8" style="zoom:33%;" />
+
+- API방식과 포워더 방식의 차이점은 이벤트를 전달하는 방식에 있다. 
+
+- 포워더 방식이 포워더를 이용해서 이벤트를 외부에 전달한다면, API 방식은 외부 핸들러가 API 서버를 통해 이벤트 목록을 가져간다. 
+
+- 포워더 방식은 이벤트를 어디까지 처리했는지 추적하는 역할이 포워더에 있다면, API 방식에서는 이벤트 목록을 요구하는 외부 핸들러가 자신이 어디까지 이벤트를 처리했는지 기억해야 한다.
+
+
+
+**이벤트 저장소 구현**
+
+- 포워더 방식과 API 방식 모두 이벤트 저장소를 사용하므로 이벤트를 저장할 저장소가 필요하다. 이벤트 저장소를 구현한 코드 구조는 아래의 그림과 같다.
+
+  <img src="./img/event9.jpg" alt="event9" style="zoom:33%;" />
+
+- EventEntry: 이벤트 저장소에 보관할 데이터이다. EventEntry는 이벤트르 식별하기 위한 id, 이벤트 타입인 type, 직렬화한 데이터 형식인 contentType, 이벤트 데이터 자체인 payload, 이벤트 시간인 timestamp를 갖는다. 
+
+  > EventEntry를 나라면 상속 구조로 구현하여 DTYPE을 통해 이벤트를 구분하면 좋을 것 같다.
+
+- EventStore: 이벤트를 저장하고 조회하는 인터페이스를 제공한다.
+
+- JdbcEventStore: JDBC를 이용한 EventStore 구현 클래스이다.
+
+- EventApi: Rest API를 이용해서 이벤트 목록을 제공하는 컨트롤러이다.
+
+ 코드는 생략하겠다. 
+
+
+
+#### 10.6 이벤트 적용 시 추가 고려사항
+
+- 이벤트를 구현할 때 추가로 고려할 점이 있다.
+
+  1. 이벤트 저장소 방식으로 구현할 때 이벤트 소스를 EventEntry에 추가할지 여부이다. 앞에서 EventEntry는 이벤트 발생 주체에 대한 정보를 갖지 않는다.
+     - 따라서 'Order'가 발생시킨 이벤트만 조회하기 처럼 특정 주체가 발생시킨 이벤트만 조회하는 기능을 구현할 수 없다. 이 기능을 구현하려면 이벤트에 발생 주체 정보를 추가해야 한다.
+
+  2. 포워더에서 전송 실패를 얼마나 허용할 것인가 이다.
+     - 포워더는 이벤트 전송에 실패하면 실패한 이벤트부터 다시 읽어와 전송을 시도한다. 그런데 특정 이벤트에서 계속 전송에 실패하면 그 이벤트 때문에 나머지 이벤트를 전송할 수 없게 된다. 따라서 포워더를 구현할 때는 실패한 이벤트의 재전송 횟수 제한을 두어야 한다.
+
+  3. 이벤트 손실에 대한 것이다. 
+
+     - 이벤트 저장소를 사용하는 방식은 이벤트 발생과 이벤트 저장을 한 트랜잭션으로 처리하기 때문에 트랜잭션에 성공하면 이벤트가 저장소에 보관되는 것을 보장할 수 있다.
+
+     - 로컬 핸들러를 이용해서 이벤트를 비동기로 처리할 경우 이벤트 처리에 실패하면 이벤트를 유실하게 된다.
+
+  4. 이벤트 순서에 대한 것이다.
+
+     - 이벤트 발생 순서대로 외부 시스템에 전달해야 할 경우, 이벤트 저상소를 사용하는 것이 좋다. 이벤트 저장소는 이벤트를 발생 순서대로 저장하고, 그 순서대로 이벤트 목록을 제공해준다.
+
+     - 반면에 메시징 시스템은 사용기술에 따라 이벤트 발생 순서와 메시지 전달 순서가 다를 수도 있다.
+
+       > 카프카는 순서대로 저장되는게 맞지 않나?? -> 나중에 공부해봐야겠다.
+
+  5. 이벤트 재처리에 대한 것이다.
+     - 동일한 이벤트를 다시 처리해야 할 때 이벤트를 어떻게 할지 결정해야 한다.
+     - 가장 쉬운 방법은 마지막으로 처리한 이벤트의 순번을 기억해 두었다가 이미 처리한 순번의 이벤트가 도착하면 해당 이벤트를 처리하지 않고 무시하는 것이다.
+     - 이벤트를 멱등으로 처리하는 방법이 있다.
+
+
+
+#### 10.6.1 이벤트 처리와 DB 트랜잭션 고려
+
+- 이벤트를 처리할 때는 DB트랜잭션을 함께 고려해야 한다.
+
+- 주문 취소 이벤트를 예를 들었을때 이벤트 발생과 처리를 모두 동기로 처리하면 실행 흐름은 아래의 그림과 같을 것이다.
+
+  <img src="./img/event10.jpg" alt="event10" style="zoom:33%;" />
+
+- 위와 같은 상황에서 고민할 상황이 있다. 12번까지 다 성공하고 13번 과정에서 DB를 업데이트 하는데 실패하는 상황이다. 다 성공하고 13번 과정에서 실패하면 결제는 취소됬는데 DB에는 주문이 취소되지 않은 상태로 남게 된다.
+
+- 이벤트를 비동기로 처리할 때도 DB 트랜잭션을 고려해야 한다.
+
+  <img src="./img/event11.jpg" alt="event10" style="zoom:33%;" />
+
+- 위 그림은 주문 취소 이벤트를 비동기로 처리할 때의 실행 흐름이다. 
+
+- DB업데이트와 트랜잭션을 다 커밋한 뒤에 환불 로직인 11번에서 13번 과정을 실행했을 때, 만약 12번 과정에서 외부 API 호출에 실패하면 DB에는 주문이 취소된 상태로 데이터가 바뀌었는데, 결제는 취소되지 않은 상태로 남게 된다.
+
+  - 이벤트 처리를 동기로 하든 비동기로 하든 이벤트 처리 실패와 트랜잭션 실패를 함께 고려해야 한다.
+
+- 트랜잭션 실패와 이벤트 처리 실패를 모두 고려하면 복잡해 지므로 경우의 수를 줄이면 도움이된다.
+
+- 스프링은 @TransactionalEventListener 애너테이션을 지원한다. 이 애너테이션은 스프링 트랜잭션 상태에 따라 이벤트 핸들러를 실행할 수 있게 한다.
+
+  ~~~java
+  	@Async
+    @Transactional(value = TxType.REQUIRES_NEW)
+    @TransactionalEventListener(
+        classes = OrderCanceledEvent.class,
+        phase = TransactionPhase.AFTER_COMMIT)
+    public void handle(OrderCanceledEvent event) {
+      Order order = orderRepository.findById(event.getOrderId()).orElseThrow(NoOrderException::new);
+  
+      refundService.refund(event.getPaymentId());
+      order.completeRefund();
+    }
+  ~~~
+
+  - 위 코드에서 phase 속성 값을 TransactionPhase.AFTER_COMMIT 으로 지정했다.
+  - 이값을 사용하면 스프링은 트랜잭션 커밋에 성공한 뒤에 핸들러 메서드를 실행한다. 
+  - 이벤트를 발행하는 서비스에서 중간에 에러가 발생해서 트랜잭션이 롤백 되면 해당 이벤트 핸들러 메서드는 실행하지 않는다.
+  - 이 기능을 사용하면 이벤트 핸들러를 실행했는데 트랜잭션이 롤백 되는 상황은 발생하지 않는다.
+
+- 이벤트 저장소로 DB를 사용해도 동일한 효과를 볼 수 있다.
+
+- 트랜잭션이 성공할 때만 이벤트 핸들러를 실행하게 됨녀 트랜잭션 실패에 대한 경우의 수가 줄어서 이벤트 처리 실패만 고리하면 된다. 이벤트 특성에 따라 재처리 방식을 결정하면 된다.

@@ -5,16 +5,22 @@ import static com.example.ddd_start.order.domain.value.OrderState.PAYMENT_WAITIN
 import static com.example.ddd_start.order.domain.value.OrderState.PREPARING;
 import static com.example.ddd_start.order.domain.value.OrderState.SHIPPED;
 
+import com.example.ddd_start.common.application.event.Events;
 import com.example.ddd_start.common.domain.Money;
 import com.example.ddd_start.coupon.domain.Coupon;
 import com.example.ddd_start.member.domain.MemberGrade;
+import com.example.ddd_start.order.domain.event.OrderCanceledEvent;
+import com.example.ddd_start.order.domain.event.OrderEvent;
+import com.example.ddd_start.order.domain.event.ShippingInfoChangedEvent;
 import com.example.ddd_start.order.domain.service.DiscountCalculationService;
 import com.example.ddd_start.order.domain.value.OrderState;
 import com.example.ddd_start.order.domain.value.Orderer;
+import com.example.ddd_start.order.domain.value.RefundState;
 import com.example.ddd_start.order.domain.value.ShippingInfo;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import javax.persistence.AttributeOverride;
 import javax.persistence.AttributeOverrides;
@@ -28,9 +34,11 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.OneToMany;
+import javax.persistence.Transient;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.domain.DomainEvents;
 
 @Getter
 @Entity(name = "orders")
@@ -62,9 +70,14 @@ public class Order {
   @Embedded
   @AttributeOverride(name = "amount", column = @Column(name = "payment_amounts"))
   private Money paymentAmounts;
-
+  @Enumerated(value = EnumType.STRING)
+  private RefundState refundState;
+  private Long paymentId;
   @Version
   private Integer version;
+
+  @Transient
+  List<OrderEvent> orderEvents = new ArrayList<>();
 
   public Order(List<OrderLine> orderLines, ShippingInfo shippingInfo, Orderer orderer) {
     this.orderNumber = generateOrderNumber();
@@ -113,6 +126,7 @@ public class Order {
   public void changeShippingInfo(ShippingInfo shippingInfo) {
     verifyNotYetShipped();
     this.shippingInfo = shippingInfo;
+    orderEvents.add(new ShippingInfoChangedEvent(id, Instant.now(), this.shippingInfo));
   }
 
 
@@ -140,6 +154,8 @@ public class Order {
   public void cancel() {
     verifyNotYetShipped();
     this.orderState = CANCEL;
+    startRefund();
+    orderEvents.add(new OrderCanceledEvent(id, paymentId));
   }
 
   private void verifyNotYetShipped() {
@@ -158,5 +174,30 @@ public class Order {
 
   public boolean matchVersion(Integer version) {
     return this.version.equals(version);
+  }
+
+  public void startRefund() {
+    canRefund();
+    this.refundState = RefundState.REFUND_START;
+  }
+
+  private void canRefund() {
+    if (this.refundState != null) {
+      throw new IllegalStateException("환불이 불가능한 상태입니다.");
+    }
+  }
+
+  public void completeRefund() {
+    verifyRefunding();
+    this.refundState = RefundState.REFUND_COMPLETED;
+  }
+
+  private void verifyRefunding() {
+    if (this.refundState == null) {
+      throw new IllegalStateException("아직 환불 중이 아닙니다.");
+    }
+    if (this.refundState != RefundState.REFUND_START) {
+      throw new IllegalStateException("이미 환불 되었습니다.");
+    }
   }
 }
